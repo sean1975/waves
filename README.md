@@ -1,7 +1,7 @@
-## Cairns Waves
+# Cairns Waves
 A web app to visualize Cairns wave data
 
-# TODO
+## TODO
 Display wave data in a table
 
 Display wave data in a chart
