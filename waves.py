@@ -3,6 +3,7 @@ import urllib2
 import urllib
 import json
 import logging
+from operator import itemgetter
 
 class MainPage(webapp2.RequestHandler):
     def getWavesData(self):
@@ -36,14 +37,21 @@ class MainPage(webapp2.RequestHandler):
             self.response.write("\n")
             
                         
+
+    def string2dict(self, response):
+        response_dict = json.loads(response)
+        logging.info(json.dumps(response_dict, indent=4, separators={",", ": "}))
+        assert response_dict['success'] is True
+        records = sorted(response_dict['result']['records'], key=itemgetter("_id"))
+        response_dict['result']['records'] = records;
+        return response_dict
+
     def get(self):
         # get waves data from QLD website
         response = self.getWavesData()
         
         # load HTTP response into a json dictionary
-        response_dict = json.loads(response);
-        logging.info(json.dumps(response_dict, indent=4, separators={",", ": "}))
-        assert response_dict['success'] is True
+        response_dict = self.string2dict(response)
         
         # print the result
         self.render(response_dict)
