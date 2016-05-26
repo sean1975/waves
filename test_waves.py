@@ -2,6 +2,9 @@ from waves import MainPage
 
 import unittest
 import mock
+from mock.mock import MagicMock
+import urllib
+import json
 
 
 class MockResponse():
@@ -18,14 +21,20 @@ class MockResponse():
     
 class WavesTest(unittest.TestCase):
         
+    def return_by_offset_value(self, url, data):
+        parameters = json.loads(urllib.unquote(data))
+        if 'offset' in parameters:
+            filename = "test_response_offset" + parameters['offset'] + ".json"
+        else:
+            filename = "test_response.json"
+        return MockResponse(200, open(filename))
+
     @mock.patch('waves.urllib2')
     def testQuery(self, mock_urllib2):
-        fd = open("test_response.json") 
-        mock_urllib2.urlopen.return_value = MockResponse(200, fd)
+        mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
         page = MainPage()
         response = page.query()
         self.assertTrue(len(response) > 0, "Failed to get waves data")
-        fd.close()
         
     def testString2Dict(self):
         fd_response_string = open("test_response_string.json");
@@ -35,16 +44,14 @@ class WavesTest(unittest.TestCase):
         self.assertTrue(result["records"][0]["_id"] == 3148)
         self.assertTrue(len(result["records"]) == 100)
         fd_response_string.close();
-        
+               
     @mock.patch('waves.urllib2')
     def testGetWavesData(self, mock_urllib2):
-        fd = open("test_response.json") 
-        mock_urllib2.urlopen.return_value = MockResponse(200, fd)
+        mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
         page = MainPage()
-        result = page.getWavesData()
-        self.assertTrue(result["records"][0]["_id"] == 3202)
-        #self.assertTrue(len(result["records"]) == 356)        
-        fd.close()
+        fields, records = page.getWavesData()
+        self.assertTrue(records[0]["_id"] == 3202)
+        self.assertTrue(len(records) == 356)
         
 
 if __name__ == "__main__":

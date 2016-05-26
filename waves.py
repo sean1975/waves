@@ -13,15 +13,32 @@ class MainPage(webapp2.RequestHandler):
         # load HTTP response into a json dictionary
         result = self.string2dict(response)
         
-        return result
+        fields = result['fields']
+        records = result['records']
+        total = result['total']        
+        count = len(records)
+        offset = 0
+        
+        # continue query with offset until all waves statistics are returned
+        while count < total:
+            offset += 100
+            response = self.query(str(offset))
+            result = self.string2dict(response)
+            count += len(result['records'])
+            records += result['records']
+        
+        return (fields, records)
         
         
-    def query(self):
+    def query(self, offset=None):
         # data API: https://data.qld.gov.au/dataset/coastal-data-system-near-real-time-wave-data/resource/2bbef99e-9974-49b9-a316-57402b00609c
         url = 'https://data.qld.gov.au/api/action/datastore_search'
     
         # query string
-        data = urllib.quote(json.dumps({'resource_id': '2bbef99e-9974-49b9-a316-57402b00609c', 'q': 'cairns'}))
+        parameters = {'resource_id': '2bbef99e-9974-49b9-a316-57402b00609c', 'q': 'cairns'}
+        if offset is not None:
+            parameters['offset'] = offset
+        data = urllib.quote(json.dumps(parameters))
 
         # send HTTP request
         response = urllib2.urlopen(url, data)
@@ -54,12 +71,10 @@ class MainPage(webapp2.RequestHandler):
 
     def get(self):
         # get waves data from QLD website
-        result = self.getWavesData()
+        fields, records = self.getWavesData()
         
         # print the result
         # fields = [ _id, Site, SiteNumber, Seconds, DateTime, Latitude, Longitude, Hsig, Hmax, Tp, Tz, SST, Direction, _full_count, rank ]
-        fields = result['fields']
-        records = result['records'];
         self.render(fields, records)
             
         
