@@ -49,7 +49,7 @@ class WavesTest(unittest.TestCase):
     def testGetWavesData(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
         page = MainPage()
-        fields, records = page.getWavesData()
+        records = page.getWavesData()
         self.assertTrue(records[0]["_id"] == 3202)
         self.assertTrue(len(records) == 356)
         

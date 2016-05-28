@@ -4,6 +4,15 @@ import urllib
 import json
 import logging
 from operator import itemgetter
+import os
+import jinja2
+
+
+JINJA_ENVIRONMENT = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
+    extensions=['jinja2.ext.autoescape'],
+    autoescape=True)
+
 
 class MainPage(webapp2.RequestHandler):
     def getWavesData(self):
@@ -13,7 +22,6 @@ class MainPage(webapp2.RequestHandler):
         # load HTTP response into a json dictionary
         result = self.string2dict(response)
         
-        fields = result['fields']
         records = result['records']
         total = result['total']        
         count = len(records)
@@ -27,7 +35,7 @@ class MainPage(webapp2.RequestHandler):
             count += len(result['records'])
             records += result['records']
         
-        return (fields, records)
+        return records
         
         
     def query(self, offset=None):
@@ -47,17 +55,10 @@ class MainPage(webapp2.RequestHandler):
         return response.read()
         
     
-    def render(self, fields, records):
-        self.response.headers['Content-Type'] = 'text/plain'
-        for field in fields :
-            self.response.write(field['id'] + "\t")
-        self.response.write("\n")
-        
-        for record in records :
-            for field in fields :
-                self.response.write(record[field['id']]);
-                self.response.write("\t")
-            self.response.write("\n")
+    def render(self, records):
+        template = JINJA_ENVIRONMENT.get_template('index.html')
+        template_values = { 'records': records }
+        self.response.write(template.render(template_values))
                                     
 
     def string2dict(self, response):
@@ -71,11 +72,11 @@ class MainPage(webapp2.RequestHandler):
 
     def get(self):
         # get waves data from QLD website
-        fields, records = self.getWavesData()
+        records = self.getWavesData()
         
         # print the result
         # fields = [ _id, Site, SiteNumber, Seconds, DateTime, Latitude, Longitude, Hsig, Hmax, Tp, Tz, SST, Direction, _full_count, rank ]
-        self.render(fields, records)
+        self.render(records)
             
         
 app = webapp2.WSGIApplication([

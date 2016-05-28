@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link type="text/css" rel="stylesheet"  href="/stylesheets/styles.css" />
+<title>Cairns Waves</title>
+</head>
+<body>
+
+<div class="statistics">
+<table>
+    <tr>
+        <th>Date Time</th>
+        <th>Significant Avg. Height</th>
+        <th>Max Height</th>
+        <th>Direction</th>
+        <th>Temperature</th>
+    </tr>
+{% for record in records %}
+    <tr class="{{ loop.cycle('odd', 'even') }}">
+        <td>{{ record.DateTime }}</td>
+        <td>{{ record.Hsig|float|round(2) }} </td>
+        <td>{{ record.Hmax|float|round(2) }}</td>
+        <td>{{ record.Direction|float|round(2) }}</td>
+        <td>{{ record.SST }}</td>
+    </tr>
+{% endfor %}
+</table>
+</div>
+
+</body>
+</html>
