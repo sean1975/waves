@@ -4,21 +4,52 @@
 <meta charset="UTF-8">
 <link type="text/css" rel="stylesheet"  href="/stylesheets/styles.css" />
 <title>Cairns Waves</title>
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+    google.charts.load('current', {'packages':['corechart']});
+    google.charts.setOnLoadCallback(drawChart);
+    function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+            ['Date Time', 'Avg', 'Max'],
+{% for record in records %}
+    {% if record.Hmax|float > 0 %}
+            [new Date({{ record.Seconds }} * 1000), {{ record.Hsig|float|round(2) }}, {{ record.Hmax|float|round(2) }}]{% if not loop.last %},{% endif %}
+    {% endif %}
+{% endfor %}
+        ]);
+
+        var options = {
+            title: 'Significant Average and Max Heights',
+            hAxis: {title: 'Date Time',  titleTextStyle: {color: '#333'}},
+            vAxis: {minValue: 0},
+            series: {
+            	1: {
+            		areaOpacity: 0.2
+            	}
+            }
+        };
+
+        var chart = new google.visualization.AreaChart(document.getElementById('chart_div'));
+        chart.draw(data, options);
+    }
+</script>
 </head>
 <body>
+
+<div id="chart_div"></div>
 
 <div class="statistics">
 <table>
     <tr>
         <th>Date Time</th>
-        <th>Significant Avg. Height</th>
+        <th>Avg Height</th>
         <th>Max Height</th>
         <th>Direction</th>
         <th>Temperature</th>
     </tr>
 {% for record in records %}
     <tr class="{{ loop.cycle('odd', 'even') }}">
-        <td>{{ record.DateTime }}</td>
+        <td>{{ record.DateTime|replace('T', ' ') }}</td>
         <td>{{ record.Hsig|float|round(2) }} </td>
         <td>{{ record.Hmax|float|round(2) }}</td>
         <td>{{ record.Direction|float|round(2) }}</td>
