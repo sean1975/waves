@@ -55,7 +55,7 @@ class MainPage(webapp2.RequestHandler):
         assert response.code == 200
         
         content = response.read()
-        if self.request.get('debug') == 'on':
+        if self.request and self.request.get('debug') == 'on':
             self.debug.append(content)
 
         return content
