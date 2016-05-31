@@ -42,7 +42,6 @@ class WavesTest(unittest.TestCase):
         response = fd_response_string.read()
         page = MainPage()
         result = page.string2dict(response)
-        self.assertTrue(result["records"][0]["_id"] == 3148)
         self.assertTrue(len(result["records"]) == 100)
         fd_response_string.close();
                
@@ -51,8 +50,11 @@ class WavesTest(unittest.TestCase):
         mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
         page = MainPage()
         records = page.getWavesData()
-        self.assertTrue(records[0]["_id"] == 3202)
-        self.assertTrue(len(records) == 356)
+        self.assertTrue(records[0]["_id"] == 2873)
+        self.assertTrue(len(records) == 334)
+        for i in range(1, len(records)):
+            self.assertGreater(records[i]["_id"], records[i-1]["_id"], "Records are not sorted by id")
+
     
     @mock.patch('waves.urllib2')
     def testHTTPException(self, mock_urllib2):

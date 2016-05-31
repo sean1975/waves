@@ -44,8 +44,8 @@ class MainPage(webapp2.RequestHandler):
             count += len(result['records'])
             records += result['records']
         
-        self.http_cache = records
-        return records
+        self.http_cache = sorted(records, key=itemgetter("_id"))
+        return self.http_cache
         
         
     def query(self, offset=None):
@@ -87,8 +87,6 @@ class MainPage(webapp2.RequestHandler):
     def string2dict(self, response):
         response_dict = json.loads(response)
         assert response_dict['success'] is True
-        records = sorted(response_dict['result']['records'], key=itemgetter("_id"))
-        response_dict['result']['records'] = records;
         return response_dict['result']
 
 
