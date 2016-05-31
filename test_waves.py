@@ -5,6 +5,7 @@ import mock
 from mock.mock import MagicMock
 import urllib
 import json
+import httplib
 
 
 class MockResponse():
@@ -52,6 +53,15 @@ class WavesTest(unittest.TestCase):
         records = page.getWavesData()
         self.assertTrue(records[0]["_id"] == 3202)
         self.assertTrue(len(records) == 356)
+    
+    @mock.patch('waves.urllib2')
+    def testHTTPException(self, mock_urllib2):
+        mock_urllib2.urlopen = MagicMock(side_effect = httplib.HTTPException("Deadline exceeded while waiting for HTTP response from URL: https://data.qld.gov.au/api/action/datastore_search"))
+        page = MainPage()
+        page.http_cache = [{'_id': 3202}]
+        records = page.getWavesData()
+        self.assertIsNotNone(records, "results are empty")
+        self.assertTrue(records[0]["_id"] == 3202)
         
 
 if __name__ == "__main__":

@@ -5,6 +5,8 @@ import json
 from operator import itemgetter
 import os
 import jinja2
+import logging
+from httplib import HTTPException
 
 
 JINJA_ENVIRONMENT = jinja2.Environment(
@@ -15,11 +17,14 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 
 class MainPage(webapp2.RequestHandler):
     debug = None
+    http_cache = None
     
     def getWavesData(self):
         self.debug = []
         # query all waves statistics for Cairns
         response = self.query()
+        if response is None:
+            return self.http_cache
         
         # load HTTP response into a json dictionary
         result = self.string2dict(response)
@@ -33,10 +38,13 @@ class MainPage(webapp2.RequestHandler):
         while count < total:
             offset += 100
             response = self.query(str(offset))
+            if response is None:
+                return self.http_cache
             result = self.string2dict(response)
             count += len(result['records'])
             records += result['records']
         
+        self.http_cache = records
         return records
         
         
@@ -51,17 +59,26 @@ class MainPage(webapp2.RequestHandler):
         data = urllib.quote(json.dumps(parameters))
 
         # send HTTP request
-        response = urllib2.urlopen(url, data)
-        assert response.code == 200
+        content = None
+        try:
+            response = urllib2.urlopen(url, data)
+            assert response.code == 200
         
-        content = response.read()
-        if self.request and self.request.get('debug') == 'on':
-            self.debug.append(content)
+            content = response.read()
+            if self.request and self.request.get('debug') == 'on':
+                self.debug.append(content)
+            
+        except HTTPException as httpexception:
+            logging.warn(httpexception)
+            if self.request and self.request.get('debug') == 'on':
+                self.debug.append(httpexception)
 
         return content
         
     
     def render(self, records):
+        if records is None:
+            self.abort(500)
         template = JINJA_ENVIRONMENT.get_template('index.html')
         template_values = { 'records': records, 'debug': self.debug }
         self.response.write(template.render(template_values))
