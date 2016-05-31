@@ -59,5 +59,12 @@
 </table>
 </div>
 
+{% if debug|length > 0 %}
+    {% for log in debug %}
+    <br>
+    <span>{{ log }} </span>
+    <br>
+    {% endfor %}
+{% endif %}
 </body>
 </html>

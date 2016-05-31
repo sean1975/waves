@@ -2,7 +2,6 @@ import webapp2
 import urllib2
 import urllib
 import json
-import logging
 from operator import itemgetter
 import os
 import jinja2
@@ -15,7 +14,10 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 
 
 class MainPage(webapp2.RequestHandler):
+    debug = None
+    
     def getWavesData(self):
+        self.debug = []
         # query all waves statistics for Cairns
         response = self.query()
         
@@ -52,18 +54,21 @@ class MainPage(webapp2.RequestHandler):
         response = urllib2.urlopen(url, data)
         assert response.code == 200
         
-        return response.read()
+        content = response.read()
+        if self.request.get('debug') == 'on':
+            self.debug.append(content)
+
+        return content
         
     
     def render(self, records):
         template = JINJA_ENVIRONMENT.get_template('index.html')
-        template_values = { 'records': records }
+        template_values = { 'records': records, 'debug': self.debug }
         self.response.write(template.render(template_values))
                                     
 
     def string2dict(self, response):
         response_dict = json.loads(response)
-        logging.info(json.dumps(response_dict, indent=4, separators={",", ": "}))
         assert response_dict['success'] is True
         records = sorted(response_dict['result']['records'], key=itemgetter("_id"))
         response_dict['result']['records'] = records;
