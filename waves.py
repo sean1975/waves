@@ -6,7 +6,6 @@ from operator import itemgetter
 import os
 import jinja2
 import logging
-from httplib import HTTPException
 
 
 JINJA_ENVIRONMENT = jinja2.Environment(
@@ -16,15 +15,19 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 
 
 class MainPage(webapp2.RequestHandler):
-    debug = None
-    http_cache = None
     
-    def getWavesData(self):
-        self.debug = []
+    def getWavesData(self, debug=False):
+        historical_data = dict()
+        query_log = []
         # query all waves statistics for Cairns
-        response = self.query()
-        if response is None:
-            return self.http_cache
+        try:
+            response = self.query()
+        except Exception as exception:
+            logging.warn(exception)
+            app = webapp2.get_app()
+            return app.registry.get('historical_data')
+        if debug == True:
+            query_log.append(response)
         
         # load HTTP response into a json dictionary
         result = self.string2dict(response)
@@ -37,15 +40,24 @@ class MainPage(webapp2.RequestHandler):
         # continue query with offset until all waves statistics are returned
         while count < total:
             offset += 100
-            response = self.query(str(offset))
-            if response is None:
-                return self.http_cache
+            try:
+                response = self.query(str(offset))
+            except Exception as exception:
+                logging.warn(exception)
+                app = webapp2.get_app();
+                return app.registry.get('historical_data')
+            if debug == True:
+                query_log.append(response)
+                
             result = self.string2dict(response)
             count += len(result['records'])
             records += result['records']
-        
-        self.http_cache = sorted(records, key=itemgetter("_id"))
-        return self.http_cache
+                
+        historical_data['records'] = sorted(records, key=itemgetter("_id"))
+        historical_data['debug'] = query_log
+        app = webapp2.get_app();
+        app.registry['historical_data'] = historical_data
+        return historical_data
         
         
     def query(self, offset=None):
@@ -59,29 +71,20 @@ class MainPage(webapp2.RequestHandler):
         data = urllib.quote(json.dumps(parameters))
 
         # send HTTP request
-        content = None
-        try:
-            response = urllib2.urlopen(url, data)
-            assert response.code == 200
+        response = urllib2.urlopen(url, data)
+        assert response.code == 200
         
-            content = response.read()
-            if self.request and self.request.get('debug') == 'on':
-                self.debug.append(content)
-            
-        except HTTPException as httpexception:
-            logging.warn(httpexception)
-            if self.request and self.request.get('debug') == 'on':
-                self.debug.append(httpexception)
-
-        return content
+        return response.read()
         
     
-    def render(self, records):
+    def render(self, historical_data):
+        records = historical_data.get('records')
+        debug = historical_data.get('debug')
         if records is None:
             self.abort(500)
         template = JINJA_ENVIRONMENT.get_template('index.html')
-        template_values = { 'records': records, 'debug': self.debug }
-        self.response.write(template.render(template_values))
+        template_values = { 'records': records, 'debug': debug }
+        return template.render(template_values)
                                     
 
     def string2dict(self, response):
@@ -92,11 +95,16 @@ class MainPage(webapp2.RequestHandler):
 
     def get(self):
         # get waves data from QLD website
-        records = self.getWavesData()
+        debug = self.request.get('debug')
+        if debug is not None and debug == 'on':
+            historical_data = self.getWavesData(debug=True)
+        else:
+            historical_data = self.getWavesData(debug=False)
         
         # print the result
         # fields = [ _id, Site, SiteNumber, Seconds, DateTime, Latitude, Longitude, Hsig, Hmax, Tp, Tz, SST, Direction, _full_count, rank ]
-        self.render(records)
+        result_page = self.render(historical_data)
+        self.response.write(result_page)
             
         
 app = webapp2.WSGIApplication([
