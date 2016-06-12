@@ -64,11 +64,27 @@ class WavesTest(unittest.TestCase):
         self.assertTrue(len(query_log) == 4)
     
     @mock.patch('waves.urllib2')
+    def testGetWavesDataCache(self, mock_urllib2):
+        mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
+        page = MainPage()
+        app = webapp2.get_app()
+        app.registry['historical_data'] = None
+        records = page.getWavesData().get('records')
+        self.assertTrue(records[0]["_id"] == 2873)
+        self.assertTrue(len(records) == 334)
+        self.assertEqual(4, mock_urllib2.urlopen.call_count)
+        records = page.getWavesData().get('records')
+        self.assertTrue(records[0]["_id"] == 2873)
+        self.assertTrue(len(records) == 334)
+        self.assertEqual(4, mock_urllib2.urlopen.call_count)
+
+    @mock.patch('waves.urllib2')
     def testHTTPException(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = httplib.HTTPException("Deadline exceeded while waiting for HTTP response from URL: https://data.qld.gov.au/api/action/datastore_search"))
         page = MainPage()
         app = webapp2.get_app()
         historical_data = dict()
+        historical_data['time'] = 1463236200
         historical_data['records'] = [{'_id': 3202}]
         app.registry['historical_data'] = historical_data
         records = page.getWavesData().get('records')

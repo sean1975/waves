@@ -6,6 +6,7 @@ from operator import itemgetter
 import os
 import jinja2
 import logging
+import time
 
 
 JINJA_ENVIRONMENT = jinja2.Environment(
@@ -17,15 +18,22 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 class MainPage(webapp2.RequestHandler):
     
     def getWavesData(self, debug=False):
-        historical_data = dict()
+        app = webapp2.get_app()
+        historical_data = app.registry.get('historical_data')
+        if historical_data is None:
+            historical_data = dict()
+        elif debug == False:
+            timestamp = historical_data['time']
+            if timestamp is not None and time.time() < timestamp + 5 * 60:
+                return historical_data
+            
         query_log = []
         # query all waves statistics for Cairns
         try:
             response = self.query()
         except Exception as exception:
             logging.warn(exception)
-            app = webapp2.get_app()
-            return app.registry.get('historical_data')
+            return historical_data
         if debug == True:
             query_log.append(response)
         
@@ -44,8 +52,7 @@ class MainPage(webapp2.RequestHandler):
                 response = self.query(str(offset))
             except Exception as exception:
                 logging.warn(exception)
-                app = webapp2.get_app();
-                return app.registry.get('historical_data')
+                return historical_data
             if debug == True:
                 query_log.append(response)
                 
@@ -53,6 +60,7 @@ class MainPage(webapp2.RequestHandler):
             count += len(result['records'])
             records += result['records']
                 
+        historical_data['time'] = time.time()
         historical_data['records'] = sorted(records, key=itemgetter("_id"))
         historical_data['debug'] = query_log
         app = webapp2.get_app();
