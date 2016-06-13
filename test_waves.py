@@ -1,4 +1,4 @@
-from waves import MainPage
+from waves import MainPage, HistoricalDataCrawler
 
 import unittest
 import mock
@@ -34,14 +34,14 @@ class WavesTest(unittest.TestCase):
     @mock.patch('waves.urllib2')
     def testQuery(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
-        page = MainPage()
+        page = HistoricalDataCrawler()
         response = page.query()
         self.assertTrue(len(response) > 0, "Failed to get waves data")
         
     def testString2Dict(self):
         fd_response_string = open("test_response_string.json");
         response = fd_response_string.read()
-        page = MainPage()
+        page = HistoricalDataCrawler()
         result = page.string2dict(response)
         self.assertTrue(len(result["records"]) == 100)
         fd_response_string.close();
@@ -49,7 +49,7 @@ class WavesTest(unittest.TestCase):
     @mock.patch('waves.urllib2')
     def testGetWavesData(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
-        page = MainPage()
+        page = HistoricalDataCrawler()
         records = page.getWavesData().get('records')
         self.assertTrue(records[0]["_id"] == 2873)
         self.assertTrue(len(records) == 334)
@@ -59,14 +59,14 @@ class WavesTest(unittest.TestCase):
     @mock.patch('waves.urllib2')
     def testGetWavesDataDebug(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
-        page = MainPage()
+        page = HistoricalDataCrawler()
         query_log = page.getWavesData(debug=True).get('debug')
         self.assertTrue(len(query_log) == 4)
     
     @mock.patch('waves.urllib2')
     def testGetWavesDataCache(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
-        page = MainPage()
+        page = HistoricalDataCrawler()
         app = webapp2.get_app()
         app.registry['historical_data'] = None
         records = page.getWavesData().get('records')
@@ -81,7 +81,7 @@ class WavesTest(unittest.TestCase):
     @mock.patch('waves.urllib2')
     def testHTTPException(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = httplib.HTTPException("Deadline exceeded while waiting for HTTP response from URL: https://data.qld.gov.au/api/action/datastore_search"))
-        page = MainPage()
+        page = HistoricalDataCrawler()
         app = webapp2.get_app()
         historical_data = dict()
         historical_data['time'] = 1463236200

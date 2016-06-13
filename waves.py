@@ -9,13 +9,7 @@ import logging
 import time
 
 
-JINJA_ENVIRONMENT = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
-    extensions=['jinja2.ext.autoescape'],
-    autoescape=True)
-
-
-class MainPage(webapp2.RequestHandler):
+class HistoricalDataCrawler(webapp2.RequestHandler):
     
     def getWavesData(self, debug=False):
         app = webapp2.get_app()
@@ -83,8 +77,41 @@ class MainPage(webapp2.RequestHandler):
         assert response.code == 200
         
         return response.read()
-        
     
+
+    def string2dict(self, response):
+        response_dict = json.loads(response)
+        assert response_dict['success'] is True
+        return response_dict['result']
+
+
+    def render(self, historical_data):
+        if historical_data is None:
+            self.abort(500)
+        return json.dumps(historical_data, indent=4, separators=(',', ': '))
+     
+     
+    def get(self):
+        # get waves data from QLD website
+        debug = self.request.get('debug')
+        if debug is not None and debug == 'on':
+            historical_data = self.getWavesData(debug=True)
+        else:
+            historical_data = self.getWavesData(debug=False)
+        
+        self.response.headers['Content-Type'] = 'text/plain'
+        result_page = self.render(historical_data)
+        self.response.write(result_page)
+ 
+    
+JINJA_ENVIRONMENT = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
+    extensions=['jinja2.ext.autoescape'],
+    autoescape=True)
+
+
+class MainPage(webapp2.RequestHandler):
+        
     def render(self, historical_data):
         records = historical_data.get('records')
         debug = historical_data.get('debug')
@@ -95,19 +122,15 @@ class MainPage(webapp2.RequestHandler):
         return template.render(template_values)
                                     
 
-    def string2dict(self, response):
-        response_dict = json.loads(response)
-        assert response_dict['success'] is True
-        return response_dict['result']
-
-
     def get(self):
-        # get waves data from QLD website
+        # call HistoricalDataCrawler to get waves data from QLD website
+        crawler = HistoricalDataCrawler(self.request, self.response)
+
         debug = self.request.get('debug')
         if debug is not None and debug == 'on':
-            historical_data = self.getWavesData(debug=True)
+            historical_data = crawler.getWavesData(debug=True)
         else:
-            historical_data = self.getWavesData(debug=False)
+            historical_data = crawler.getWavesData(debug=False)
         
         # print the result
         # fields = [ _id, Site, SiteNumber, Seconds, DateTime, Latitude, Longitude, Hsig, Hmax, Tp, Tz, SST, Direction, _full_count, rank ]
@@ -117,4 +140,5 @@ class MainPage(webapp2.RequestHandler):
         
 app = webapp2.WSGIApplication([
     ('/', MainPage),
+    ('/data/historical', HistoricalDataCrawler)
 ], debug=True)
