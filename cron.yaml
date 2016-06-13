@@ -1,0 +1,4 @@
+cron:
+- description: crawl historical waves data from QLD website
+  url: /data/historical
+  schedule: every 30 minutes

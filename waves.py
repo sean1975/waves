@@ -11,14 +11,14 @@ import time
 
 class HistoricalDataCrawler(webapp2.RequestHandler):
     
-    def getWavesData(self, debug=False):
+    def getWavesData(self, debug=False, ttl=300):
         app = webapp2.get_app()
         historical_data = app.registry.get('historical_data')
         if historical_data is None:
             historical_data = dict()
         elif debug == False:
             timestamp = historical_data['time']
-            if timestamp is not None and time.time() < timestamp + 5 * 60:
+            if timestamp is not None and time.time() < timestamp + ttl:
                 return historical_data
             
         query_log = []
@@ -130,7 +130,7 @@ class MainPage(webapp2.RequestHandler):
         if debug is not None and debug == 'on':
             historical_data = crawler.getWavesData(debug=True)
         else:
-            historical_data = crawler.getWavesData(debug=False)
+            historical_data = crawler.getWavesData(debug=False, ttl=30*60)
         
         # print the result
         # fields = [ _id, Site, SiteNumber, Seconds, DateTime, Latitude, Longitude, Hsig, Hmax, Tp, Tz, SST, Direction, _full_count, rank ]
