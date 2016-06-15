@@ -2,3 +2,6 @@ cron:
 - description: crawl historical waves data from QLD website
   url: /data/historical
   schedule: every 30 minutes
+- description: crawl forecast waves data from www.seebreeze.com.au
+  url: /data/forecast
+  schedule: every 30 minutes

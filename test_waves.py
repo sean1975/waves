@@ -1,4 +1,4 @@
-from waves import MainPage, HistoricalDataCrawler
+from waves import MainPage, HistoricalDataCrawler, ForecastDataCrawler
 
 import unittest
 import mock
@@ -7,6 +7,7 @@ import webapp2
 import urllib
 import json
 import httplib
+from datetime import datetime
 
 
 class MockResponse():
@@ -111,10 +112,29 @@ class WavesTest(unittest.TestCase):
             "Direction": "109.473037217659"
         }]
         historical_data['debug'] = []
+        forecast_data = dict()
+        forecast_data['records'] = [{
+            "Wind": "22",
+            "DateTime": "2016-06-14 23:30:00",
+            "Direction": "ESE",
+            "Seconds": 1465947000,
+            "Waves": "3.01"
+        }]
 
         page = MainPage()
-        page.render(historical_data)
+        page.render(historical_data, forecast_data)
 
+
+    @mock.patch('waves.ForecastDataCrawler.now')
+    def testString2DictForcast(self, mock_now):
+        mock_now.return_value = datetime(2016, 6, 19, 0, 0, 0)
+        fd_response_string = open("test_seabreeze.html")
+        response = fd_response_string.read()
+        page = ForecastDataCrawler()
+        result = page.string2dict(response)
+        self.assertTrue(len(result) == 13)
+        fd_response_string.close();
+               
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
