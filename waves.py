@@ -68,9 +68,11 @@ class ForecastDataCrawler(webapp2.RequestHandler):
         records = []
         response_dict = json.loads(match.group(1))
         response_array = response_dict['data'][0].split(',')
+        # start_date in Cairns timezone (AEST)
         start_date = datetime.strptime(response_array[12], '%Y%m%d%H%M')
         # Cairns timezone +10
         tzdiff = timedelta(hours=10)
+        # now in Cairns timezone (AEST)
         now = self.now()+tzdiff
         for i in xrange(58, len(response_array), 4):
             hours = float(response_array[i]) / 100
@@ -80,8 +82,10 @@ class ForecastDataCrawler(webapp2.RequestHandler):
             if dt < now:
                 continue
             record = dict()
+            # record['DateTime'] is in Cairns timezone (AEST)
             record['DateTime'] = dt.strftime('%Y-%m-%d %H:%M:%S')
-            record['Seconds'] = int((dt - datetime(1970,1,1)).total_seconds())
+            # record['Seconds'] is Epoch time in UTC
+            record['Seconds'] = int((dt - tzdiff - datetime(1970,1,1)).total_seconds())
             record['Wind'] = response_array[i+1]
             record['Direction'] = response_array[i+2]
             record['Waves'] = response_array[i+3]

@@ -133,6 +133,9 @@ class WavesTest(unittest.TestCase):
         page = ForecastDataCrawler()
         result = page.string2dict(response)
         self.assertTrue(len(result) == 13)
+        record_Seconds = datetime.fromtimestamp(result[0]['Seconds'])
+        record_DateTime = datetime.strptime(result[0]['DateTime'], '%Y-%m-%d %H:%M:%S')
+        self.assertTrue(record_Seconds == record_DateTime)
         fd_response_string.close();
                
 
