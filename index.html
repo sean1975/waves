@@ -27,6 +27,11 @@
         data.setValue(row_index, 3, {{ record.Waves|float|round(2) }});
 {% endfor %}        
 
+        var formatter_options = new Object();
+        formatter_options['pattern'] = 'hh:mm a';
+        var formatter = new google.visualization.DateFormat(formatter_options);
+        formatter.format(data, 0)
+        
         var options = {
             title: 'Cairns Waves',
             hAxis: {
