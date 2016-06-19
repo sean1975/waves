@@ -11,11 +11,29 @@ from datetime import datetime, timedelta
 import re
 
 
-class ForecastDataCrawler(webapp2.RequestHandler):
+class AbstractDataCrawler(webapp2.RequestHandler):
+    ''' Base class for crawling data '''
+    data_name = None
+    ttl = 300
 
-    def getWavesData(self, debug=False, ttl=300):
+    
+    def __init__(self, data_name=None, request=None, response=None):
+        super(AbstractDataCrawler, self).__init__(request=request, response=response)
+        self.data_name = data_name
+        
+
+    def getCacheData(self):
         app = webapp2.get_app()
-        forecast_data = app.registry.get('forecast_data')
+        return app.registry.get(self.data_name)
+        
+        
+    def setCacheData(self, cache_data):
+        app = webapp2.get_app()
+        app.registry[self.data_name] = cache_data
+
+        
+    def getWavesData(self, debug=False, ttl=300):
+        forecast_data = self.getCacheData()
         if forecast_data is None:
             forecast_data = dict()
         elif debug == False:
@@ -39,10 +57,43 @@ class ForecastDataCrawler(webapp2.RequestHandler):
         forecast_data['time'] = time.time()
         forecast_data['records'] = records
         forecast_data['debug'] = query_log
-        app.registry['forecast_data'] = forecast_data
+        self.setCacheData(forecast_data)
         return forecast_data
 
 
+    ''' Extract datetime.now in a method so that it can be mocked
+        in unit test without affecting other class methods of datetime '''
+    def now(self):
+        return datetime.now()
+    
+    
+    def render(self, forecast_data):
+        if forecast_data is None:
+            self.abort(500)
+        return json.dumps(forecast_data, indent=4, separators=(',', ': '))
+    
+    
+    def get(self):
+        # get waves data from www.seabreeze.com.au
+        if self.request and self.request.get('debug') == 'on':
+            debug = True
+        else:
+            debug = False
+        forecast_data = self.getWavesData(debug=debug)
+                    
+        result_page = self.render(forecast_data)
+        if self.response:
+            self.response.headers['Content-Type'] = 'text/plain'
+            self.response.write(result_page)
+
+
+class SeabreezeDataCrawler(AbstractDataCrawler):
+    ''' Data crawler to get forecast data from www.seabreeze.com.au '''
+    
+    def __init__(self, request=None, response=None):
+        super(SeabreezeDataCrawler, self).__init__(data_name='seabreeze_data', request=request, response=response)
+        
+    
     def query(self):
         url = 'http://www.seabreeze.com.au/graphs/qld2.asp'
 
@@ -51,12 +102,6 @@ class ForecastDataCrawler(webapp2.RequestHandler):
         assert response.code == 200
         
         return response.read()
-    
-    
-    ''' Extract datetime.now in a method so that it can be mocked
-        in unit test without affecting other class methods of datetime '''
-    def now(self):
-        return datetime.now()
     
     
     def string2dict(self, response):
@@ -93,30 +138,15 @@ class ForecastDataCrawler(webapp2.RequestHandler):
         return records
 
 
-    def render(self, forecast_data):
-        if forecast_data is None:
-            self.abort(500)
-        return json.dumps(forecast_data, indent=4, separators=(',', ': '))
+class HistoricalDataCrawler(AbstractDataCrawler):
+    ''' Data crawler to get historical data from data.qld.gov.au '''
     
-    
-    def get(self):
-        # get waves data from www.seabreeze.com.au
-        debug = self.request.get('debug')
-        if debug is not None and debug == 'on':
-            forecast_data = self.getWavesData(debug=True)
-        else:
-            forecast_data = self.getWavesData(debug=False)
-        
-        self.response.headers['Content-Type'] = 'text/plain'
-        result_page = self.render(forecast_data)
-        self.response.write(result_page)
+    def __init__(self, request=None, response=None):
+        super(HistoricalDataCrawler, self).__init__(data_name='historical_data', request=request, response=response)
 
-
-class HistoricalDataCrawler(webapp2.RequestHandler):
     
     def getWavesData(self, debug=False, ttl=300):
-        app = webapp2.get_app()
-        historical_data = app.registry.get('historical_data')
+        historical_data = self.getCacheData()
         if historical_data is None:
             historical_data = dict()
         elif debug == False:
@@ -157,11 +187,11 @@ class HistoricalDataCrawler(webapp2.RequestHandler):
             result = self.string2dict(response)
             count += len(result['records'])
             records += result['records']
-                
+        
         historical_data['time'] = time.time()
         historical_data['records'] = sorted(records, key=itemgetter("_id"))
         historical_data['debug'] = query_log
-        app.registry['historical_data'] = historical_data
+        self.setCacheData(historical_data)
         return historical_data
         
         
@@ -186,25 +216,6 @@ class HistoricalDataCrawler(webapp2.RequestHandler):
         response_dict = json.loads(response)
         assert response_dict['success'] is True
         return response_dict['result']
-
-
-    def render(self, historical_data):
-        if historical_data is None:
-            self.abort(500)
-        return json.dumps(historical_data, indent=4, separators=(',', ': '))
-     
-     
-    def get(self):
-        # get waves data from QLD website
-        debug = self.request.get('debug')
-        if debug is not None and debug == 'on':
-            historical_data = self.getWavesData(debug=True)
-        else:
-            historical_data = self.getWavesData(debug=False)
-        
-        self.response.headers['Content-Type'] = 'text/plain'
-        result_page = self.render(historical_data)
-        self.response.write(result_page)
  
     
 JINJA_ENVIRONMENT = jinja2.Environment(
@@ -229,7 +240,7 @@ class MainPage(webapp2.RequestHandler):
     def get(self):
         # call HistoricalDataCrawler to get waves data from QLD website
         historical_crawler = HistoricalDataCrawler(self.request, self.response)
-        forecast_crawler = ForecastDataCrawler(self.request, self.response)
+        forecast_crawler = SeabreezeDataCrawler(self.request, self.response)
 
         debug = self.request.get('debug')
         if debug is not None and debug == 'on':
@@ -248,5 +259,5 @@ class MainPage(webapp2.RequestHandler):
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/data/historical', HistoricalDataCrawler),
-    ('/data/forecast', ForecastDataCrawler)
+    ('/data/forecast', SeabreezeDataCrawler)
 ], debug=True)

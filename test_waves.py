@@ -1,9 +1,8 @@
-from waves import MainPage, HistoricalDataCrawler, ForecastDataCrawler
+from waves import MainPage, HistoricalDataCrawler, SeabreezeDataCrawler
 
 import unittest
 import mock
 from mock.mock import MagicMock
-import webapp2
 import urllib
 import json
 import httplib
@@ -68,30 +67,30 @@ class WavesTest(unittest.TestCase):
     def testGetWavesDataCache(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
         page = HistoricalDataCrawler()
-        app = webapp2.get_app()
-        app.registry['historical_data'] = None
+        page.setCacheData(None)
+        # First time urllib2.urlopen() should be called
         records = page.getWavesData().get('records')
         self.assertTrue(records[0]["_id"] == 2873)
         self.assertTrue(len(records) == 334)
         self.assertEqual(4, mock_urllib2.urlopen.call_count)
+        # Second time urllib2.urlopen() should NOT be called
         records = page.getWavesData().get('records')
         self.assertTrue(records[0]["_id"] == 2873)
         self.assertTrue(len(records) == 334)
         self.assertEqual(4, mock_urllib2.urlopen.call_count)
-
+        
     @mock.patch('waves.urllib2')
     def testHTTPException(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = httplib.HTTPException("Deadline exceeded while waiting for HTTP response from URL: https://data.qld.gov.au/api/action/datastore_search"))
         page = HistoricalDataCrawler()
-        app = webapp2.get_app()
         historical_data = dict()
         historical_data['time'] = 1463236200
         historical_data['records'] = [{'_id': 3202}]
-        app.registry['historical_data'] = historical_data
+        page.setCacheData(historical_data)
         records = page.getWavesData().get('records')
         self.assertIsNotNone(records, "results are empty")
         self.assertTrue(records[0]["_id"] == 3202)
-
+        
     def testRender(self):
         historical_data = dict()
         historical_data['records'] = [{
@@ -125,12 +124,12 @@ class WavesTest(unittest.TestCase):
         page.render(historical_data, forecast_data)
 
 
-    @mock.patch('waves.ForecastDataCrawler.now')
-    def testString2DictForcast(self, mock_now):
+    @mock.patch('waves.SeabreezeDataCrawler.now')
+    def testString2DictSeabreezeData(self, mock_now):
         mock_now.return_value = datetime(2016, 6, 19, 0, 0, 0)
         fd_response_string = open("test_seabreeze.html")
         response = fd_response_string.read()
-        page = ForecastDataCrawler()
+        page = SeabreezeDataCrawler()
         result = page.string2dict(response)
         self.assertTrue(len(result) == 13)
         record_Seconds = datetime.fromtimestamp(result[0]['Seconds'])
