@@ -7,6 +7,12 @@ body {
 	height: 500px;
 }
 
+#references {
+	text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 table {
     border-spacing: 0;
     margin-left: auto;

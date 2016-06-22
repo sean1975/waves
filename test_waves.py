@@ -1,4 +1,4 @@
-from waves import MainPage, HistoricalDataCrawler, SeabreezeDataCrawler
+from waves import MainPage, HistoricalDataCrawler, SeabreezeDataCrawler, BureauDataCrawler
 
 import unittest
 import mock
@@ -119,9 +119,18 @@ class WavesTest(unittest.TestCase):
             "Seconds": 1465947000,
             "Waves": "3.01"
         }]
+        bureau_data = dict()
+        bureau_data['records'] = [{
+            'Seconds': 1466401800,
+            'Swell': 'Southeasterly around 1 metre outside the reef.',
+            'DateTime': '2016-06-20 15:50:00',
+            'Seas': 1.0,
+            'Weather': 'Cloudy.',
+            'Winds': 'Southeasterly 10 to 15 knots, reaching up to 20 knots offshore north of Cairns in the evening.'
+        }]
 
         page = MainPage()
-        page.render(historical_data, forecast_data)
+        page.render(historical_data, forecast_data, bureau_data)
 
 
     @mock.patch('waves.SeabreezeDataCrawler.now')
@@ -137,6 +146,20 @@ class WavesTest(unittest.TestCase):
         self.assertTrue(record_Seconds == record_DateTime)
         fd_response_string.close();
                
+
+    @mock.patch('waves.BureauDataCrawler.now')
+    def testString2DictBureauData(self, mock_now):
+        mock_now.return_value = datetime(2016, 6, 19, 0, 0, 0)
+        fd_response_string = open("test_bom.html")
+        response = fd_response_string.read()
+        page = BureauDataCrawler()
+        result = page.string2dict(response)
+        print result
+        self.assertTrue(len(result) == 4)
+        record_Seconds = datetime.fromtimestamp(result[0]['Seconds'])
+        record_DateTime = datetime.strptime(result[0]['DateTime'], '%Y-%m-%d %H:%M:%S')
+        self.assertTrue(record_Seconds == record_DateTime)
+        fd_response_string.close();
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

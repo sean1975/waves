@@ -9,6 +9,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 import re
+from HTMLParser import HTMLParser
 
 
 class AbstractDataCrawler(webapp2.RequestHandler):
@@ -138,6 +139,136 @@ class SeabreezeDataCrawler(AbstractDataCrawler):
         return records
 
 
+# create a subclass and override the handler methods
+class BureauDataParser(HTMLParser):
+    content = False
+    path = []
+    issued_time = None
+    tzdiff = timedelta(hours=10)
+    records = []
+    current_record = None
+    field_name = None
+    
+    
+    def get_records(self):
+        return self.records
+    
+    
+    def handle_starttag(self, tag, attrs):
+        if self.content == True:
+            self.path.append((tag, attrs))
+            return
+        if tag != 'div':
+            return
+        for attr in attrs:
+            (name, value) = attr
+            if name != 'id':
+                continue
+            if value != 'content':
+                continue
+            # Found entity <div id='content'>
+            self.content = True
+            self.path = []
+            self.issued_time = None
+            self.records = []
+            self.current_record = None
+            self.field_name = None
+            return
+        
+
+    def handle_endtag(self, tag):
+        if self.content != True:
+            return
+        if len(self.path) > 0:
+            self.path.pop()
+        else:
+            self.content = False
+
+
+    def handle_data(self, data):
+        if self.content != True:
+            return
+        if len(data.strip()) == 0:
+            return
+        if len(self.path) < 2:
+            return
+        #<div class='marine'>
+        if self.path[0][0] != 'div' or self.path[0][1][0][0] != 'class' or self.path[0][1][0][1] != 'marine':
+            return
+        #<div class='marine'><p class='date'>
+        if self.path[1][0] == 'p' and self.path[1][1][0][0] == 'class' and self.path[1][1][0][1] == 'date':
+            # Forecast issued at 3:50 pm EST on Monday 20 June 2016.
+            self.issued_time = datetime.strptime(data, 'Forecast issued at %I:%M %p EST on %A %d %B %Y.')
+            return
+        #<div class='marine'><div class='day'>
+        if self.path[1][0] != 'div' or self.path[1][1][0][0] != 'class' or self.path[1][1][0][1] != 'day':
+            return
+        if len(self.path) < 3:
+            return
+        #<div class='marine'><div class='day'><h2>
+        if self.path[2][0] == 'h2':
+            self.current_record = dict()
+            if len(self.records) == 0:
+                first_forecast_datetime = self.issued_time.replace(hour=0, minute=0, second=0) + timedelta(days=1)
+                self.current_record['DateTime'] = first_forecast_datetime.__str__()
+                self.current_record['Seconds'] = int((first_forecast_datetime - self.tzdiff - datetime(1970,1,1)).total_seconds())
+            else:
+                dt = datetime.strptime(data, '%A %d %B').replace(year=self.issued_time.year, hour=12, minute=0, second=0)
+                self.current_record['DateTime'] = dt.__str__()
+                self.current_record['Seconds'] = int((dt - self.tzdiff - datetime(1970,1,1)).total_seconds())
+            return
+        if len(self.path) < 4:
+            return
+        #<div class='marine'><div class='day'><dl class='marine'>
+        if self.path[2][0] != 'dl' or self.path[2][1][0][0] != 'class' or self.path[2][1][0][1] != 'marine':
+            return
+        #<div class='marine'><div class='day'><dl class='marine'><dt>
+        #<div class='marine'><div class='day'><dl class='marine'><dd>
+        if self.path[3][0] == 'dt':
+            self.field_name = data
+            return
+        if self.path[3][0] == 'dd':
+            if self.field_name == 'Seas':
+                match = re.search("^(Around|Below)?\s?(\d(?:\.\d)?) metre.*?", data)
+                if match:
+                    if match.group(1) == 'Below':
+                        self.current_record[self.field_name] = float(match.group(2)) * 0.8
+                    else:
+                        self.current_record[self.field_name] = float(match.group(2))
+                else:
+                    self.current_record[self.field_name] = data
+            else:
+                self.current_record[self.field_name] = data
+            if len(self.path[3]) > 1 and len(self.path[3][1]) > 0 and self.path[3][1][0][0] == 'class' and self.path[3][1][0][1] == 'last':
+                self.records.append(self.current_record)
+                self.current_record = None
+            self.field_name = None
+            return       
+        
+        
+class BureauDataCrawler(AbstractDataCrawler):
+    ''' Data crawler to get forecast data from bureau of meteorology www.bom.gov.au '''
+    
+    def __init__(self, request=None, response=None):
+        super(BureauDataCrawler, self).__init__(data_name='bureau_data', request=request, response=response)
+        
+    
+    def query(self):
+        url = 'http://www.bom.gov.au/qld/forecasts/cairns-coast.shtml'
+
+        # send HTTP request
+        response = urllib2.urlopen(url)
+        assert response.code == 200
+        
+        return response.read()
+    
+    
+    def string2dict(self, response):
+        parser = BureauDataParser()
+        parser.feed(response)
+        return parser.get_records()
+
+
 class HistoricalDataCrawler(AbstractDataCrawler):
     ''' Data crawler to get historical data from data.qld.gov.au '''
     
@@ -226,14 +357,15 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 
 class MainPage(webapp2.RequestHandler):
         
-    def render(self, historical_data, forecast_data):
+    def render(self, historical_data, forecast_data, bureau_data):
+        bureau = bureau_data.get('records')
         forecast = forecast_data.get('records')
         records = historical_data.get('records')
         debug = historical_data.get('debug')
         if records is None:
             self.abort(500)
         template = JINJA_ENVIRONMENT.get_template('index.html')
-        template_values = { 'forecast': forecast, 'records': records, 'debug': debug }
+        template_values = { 'forecast2': bureau, 'forecast': forecast, 'records': records, 'debug': debug }
         return template.render(template_values)
                                     
 
@@ -241,23 +373,27 @@ class MainPage(webapp2.RequestHandler):
         # call HistoricalDataCrawler to get waves data from QLD website
         historical_crawler = HistoricalDataCrawler(self.request, self.response)
         forecast_crawler = SeabreezeDataCrawler(self.request, self.response)
+        bureau_crawler = BureauDataCrawler(self.request, self.response)
 
         debug = self.request.get('debug')
         if debug is not None and debug == 'on':
             historical_data = historical_crawler.getWavesData(debug=True)
             forecast_data = forecast_crawler.getWavesData(debug=True)
+            bureau_data = bureau_crawler.getWavesData(debug=True)
         else:
             historical_data = historical_crawler.getWavesData(debug=False, ttl=30*60)
             forecast_data = forecast_crawler.getWavesData(debug=False, ttl=30*60)
+            bureau_data = bureau_crawler.getWavesData(debug=False, ttl=30*60)
         
         # print the result
         # fields = [ _id, Site, SiteNumber, Seconds, DateTime, Latitude, Longitude, Hsig, Hmax, Tp, Tz, SST, Direction, _full_count, rank ]
-        result_page = self.render(historical_data, forecast_data)
+        result_page = self.render(historical_data, forecast_data, bureau_data)
         self.response.write(result_page)
             
         
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/data/historical', HistoricalDataCrawler),
-    ('/data/forecast', SeabreezeDataCrawler)
+    ('/data/seabreeze', SeabreezeDataCrawler),
+    ('/data/bureau', BureauDataCrawler)
 ], debug=True)

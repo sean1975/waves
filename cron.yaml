@@ -3,5 +3,8 @@ cron:
   url: /data/historical
   schedule: every 30 minutes
 - description: crawl forecast waves data from www.seebreeze.com.au
-  url: /data/forecast
+  url: /data/seabreeze
+  schedule: every 30 minutes
+- description: crawl forecast waves data from www.bom.gov.au
+  url: /data/bureau
   schedule: every 30 minutes
