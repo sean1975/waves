@@ -147,6 +147,7 @@ class BureauDataParser(HTMLParser):
     tzdiff = timedelta(hours=10)
     records = []
     current_record = None
+    extra_record = None
     field_name = None
     
     
@@ -172,6 +173,7 @@ class BureauDataParser(HTMLParser):
             self.issued_time = None
             self.records = []
             self.current_record = None
+            self.extra_record = None
             self.field_name = None
             return
         
@@ -229,19 +231,63 @@ class BureauDataParser(HTMLParser):
             return
         if self.path[3][0] == 'dd':
             if self.field_name == 'Seas':
-                match = re.search("^(Around|Below)?\s?(\d(?:\.\d)?) metre.*?", data)
+                match = re.search("^(?P<modifier>Around|Below)?\s?(?P<from>\d(?:\.\d)?)(?: to (?P<to>\d+(?:\.\d)?))? metre(?:s)?(?:, (?:increasing|decreasing) to (?P<from2>\d(?:\.\d)?)(?: to (?P<to2>\d+(?:\.\d)?))? metre(?:s)? during the (?P<during>morning|afternoon|evening))?.*?", data)
                 if match:
-                    if match.group(1) == 'Below':
-                        self.current_record[self.field_name] = float(match.group(2)) * 0.8
+                    seas_dict = match.groupdict()
+                    seas = 0.0
+                    if seas_dict['from'] == None:
+                        logging.error('Failed to parse wave height from "' + data + '"')
+                    elif seas_dict['to'] != None:
+                        seas = (float(seas_dict['from']) + float(seas_dict['to'])) / 2.0
                     else:
-                        self.current_record[self.field_name] = float(match.group(2))
+                        seas = float(seas_dict['from'])
+                    if seas_dict['modifier'] == 'Below':
+                        seas *= 0.8;
+                    self.current_record[self.field_name] = seas
+                    if seas_dict['from2'] != None:
+                        self.extra_record = dict()
+                        if seas_dict['to2'] != None:
+                            extra_seas = (float(seas_dict['from2']) + float(seas_dict['to2'])) / 2.0
+                        else:
+                            extra_seas = float(seas_dict['from2'])
+                        if seas_dict['during'] == 'morning':
+                            # insert an extra record before the current record
+                            extra_datetime = datetime.fromtimestamp(self.current_record['Seconds']) - timedelta(hours=6)
+                            self.extra_record['DateTime'] = extra_datetime.__str__()
+                            self.extra_record['Seconds'] = int((extra_datetime - datetime(1970,1,1)).total_seconds())
+                            self.extra_record['Seas'] = extra_seas
+                            self.records.append(self.extra_record)
+                            self.extra_record = None
+                        elif seas_dict['during'] == 'evening':
+                            # append an extra record after the current record
+                            extra_datetime = datetime.fromtimestamp(self.current_record['Seconds']) + timedelta(hours=6)
+                            self.extra_record['DateTime'] = extra_datetime.__str__()
+                            self.extra_record['Seconds'] = int((extra_datetime - datetime(1970,1,1)).total_seconds())
+                            self.extra_record['Seas'] = extra_seas
+                        elif seas_dict['during'] == 'afternoon':
+                            # insert and append extra records before and after the current record. also modify wave height for the current record
+                            extra_datetime = datetime.fromtimestamp(self.current_record['Seconds']) - timedelta(hours=6)
+                            self.extra_record['DateTime'] = extra_datetime.__str__()
+                            self.extra_record['Seconds'] = int((extra_datetime - datetime(1970,1,1)).total_seconds())
+                            self.extra_record['Seas'] = self.current_record[self.field_name]
+                            self.records.append(self.extra_record)
+                            self.extra_record = dict()
+                            extra_datetime = datetime.fromtimestamp(self.current_record['Seconds']) + timedelta(hours=6)
+                            self.extra_record['DateTime'] = extra_datetime.__str__()
+                            self.extra_record['Seconds'] = int((extra_datetime - datetime(1970,1,1)).total_seconds())
+                            self.extra_record['Seas'] = self.current_record[self.field_name]
+                            self.current_record[self.field_name] = extra_seas
                 else:
+                    logging.error('Failed to parse wave height from "' + data + '"')
                     self.current_record[self.field_name] = data
             else:
                 self.current_record[self.field_name] = data
             if len(self.path[3]) > 1 and len(self.path[3][1]) > 0 and self.path[3][1][0][0] == 'class' and self.path[3][1][0][1] == 'last':
                 self.records.append(self.current_record)
                 self.current_record = None
+                if self.extra_record != None:
+                    self.records.append(self.extra_record)
+                    self.extra_record = None
             self.field_name = None
             return       
         
