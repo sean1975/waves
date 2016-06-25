@@ -50,6 +50,12 @@
         var formatter = new google.visualization.DateFormat(formatter_options);
         formatter.format(data, 0)
         
+        var number_formatter = new google.visualization.NumberFormat({suffix: 'm'});
+        number_formatter.format(data, 1);
+        number_formatter.format(data, 2);
+        number_formatter.format(data, 3);
+        number_formatter.format(data, 4);
+        
         var options = {
             title: 'Cairns Waves',
             hAxis: {
@@ -68,12 +74,12 @@
             		areaOpacity: 0.2
             	},
                 2: {
-                	lineDashStyle: [4, 4],
+                	lineDashStyle: [8, 4],
                 	color: 'red',
                 	areaOpacity: 0.1
                 },
             	3: {
-            		lineDashStyle: [4, 4],
+            		lineDashStyle: [2, 4],
             		color: 'red',
             		areaOpacity: 0.1
             	}
