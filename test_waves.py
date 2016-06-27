@@ -147,35 +147,64 @@ class WavesTest(unittest.TestCase):
         fd_response_string.close();
                
 
-    @mock.patch('waves.BureauDataCrawler.now')
+    @mock.patch('waves.BureauDataParser.now')
     def testString2DictBureauData(self, mock_now):
-        mock_now.return_value = datetime(2016, 6, 19, 0, 0, 0)
+        mock_now.return_value = datetime(2016, 6, 20, 18, 30, 0)
         fd_response_string = open("test_bom.html")
         response = fd_response_string.read()
         page = BureauDataCrawler()
         result = page.string2dict(response)
-        self.assertTrue(len(result) == 4)
+        self.assertTrue(len(result) == 13)
         record_Seconds = datetime.fromtimestamp(result[0]['Seconds'])
         record_DateTime = datetime.strptime(result[0]['DateTime'], '%Y-%m-%d %H:%M:%S')
         self.assertTrue(record_Seconds == record_DateTime)
         fd_response_string.close();
-        # Seas[0]: Below 1 metre.
-        # Seas[1]: Below 1 metre.
-        # Seas[2] & Seas[3]: Below 1 metre, increasing to 1 to 2 metres during the morning.
-        # Seas[4] & Seas[5] & Seas[6]: 1 to 1.5 metres, decreasing to 1 metre during the afternoon.
+        # Seas[0-3]: Below 1 metre.
+        # Seas[4-7]: Below 1 metre.
+        # Seas[8-11]: Below 1 metre, increasing to 1 to 2 metres during the morning.
+        # Seas[12-15]: 1 to 1.5 metres, decreasing to 1 metre during the afternoon.
         fd_response_string = open("test_bom2.html")
         response = fd_response_string.read()
         result = page.string2dict(response)
-        self.assertTrue(len(result) == 7)
+        
+        self.assertTrue(len(result) == 16)
+
         self.assertTrue(result[0]['Seas'] == 0.8)
         self.assertTrue(result[1]['Seas'] == 0.8)
-        self.assertTrue(result[2]['Seas'] == 1.5)
+        self.assertTrue(result[2]['Seas'] == 0.8)
         self.assertTrue(result[3]['Seas'] == 0.8)
-        self.assertTrue(result[4]['Seas'] == 1.25)
-        self.assertTrue(result[5]['Seas'] == 1)
-        self.assertTrue(result[6]['Seas'] == 1.25)
+        self.assertTrue(result[4]['Seas'] == 0.8)
+        self.assertTrue(result[5]['Seas'] == 0.8)
+        self.assertTrue(result[6]['Seas'] == 0.8)
+        self.assertTrue(result[7]['Seas'] == 0.8)
+        self.assertTrue(result[8]['Seas'] == 1.5)
+        self.assertTrue(result[9]['Seas'] == 1.5)
+        self.assertTrue(result[10]['Seas'] == 1.5)
+        self.assertTrue(result[11]['Seas'] == 1.5)
+        self.assertTrue(result[12]['Seas'] == 1.25)
+        self.assertTrue(result[13]['Seas'] == 1.0)
+        self.assertTrue(result[14]['Seas'] == 1.0)
+        self.assertTrue(result[15]['Seas'] == 1.0)
 
+        self.assertTrue(result[0]['Winds'] == 12.5)
+        self.assertTrue(result[1]['Winds'] == 12.5)
+        self.assertTrue(result[2]['Winds'] == 10)
+        self.assertTrue(result[3]['Winds'] == 10)
+        self.assertTrue(result[4]['Winds'] == 10)
+        self.assertTrue(result[5]['Winds'] == 10)
+        self.assertTrue(result[6]['Winds'] == 10)
+        self.assertTrue(result[7]['Winds'] == 10)
+        self.assertTrue(result[8]['Winds'] == 20)
+        self.assertTrue(result[9]['Winds'] == 20)
+        self.assertTrue(result[10]['Winds'] == 20)
+        self.assertTrue(result[11]['Winds'] == 20)
+        self.assertTrue(result[12]['Winds'] == 17.5)
+        self.assertTrue(result[13]['Winds'] == 17.5)
+        self.assertTrue(result[14]['Winds'] == 17.5)
+        self.assertTrue(result[15]['Winds'] == 17.5)
 
+        
+                        
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

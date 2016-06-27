@@ -2,7 +2,7 @@ body {
     font-family: arial, sans-serif;
 }
 
-#chart_div {
+div.chart {
 	width: 100%;
 	height: 500px;
 }

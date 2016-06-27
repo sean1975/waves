@@ -147,13 +147,18 @@ class BureauDataParser(HTMLParser):
     tzdiff = timedelta(hours=10)
     records = []
     current_record = None
-    extra_record = None
     field_name = None
     
     
     def get_records(self):
         return self.records
     
+    
+    ''' Extract datetime.now in a method so that it can be mocked
+        in unit test without affecting other class methods of datetime '''
+    def now(self):
+        return datetime.now()
+
     
     def handle_starttag(self, tag, attrs):
         if self.content == True:
@@ -173,7 +178,6 @@ class BureauDataParser(HTMLParser):
             self.issued_time = None
             self.records = []
             self.current_record = None
-            self.extra_record = None
             self.field_name = None
             return
         
@@ -209,15 +213,18 @@ class BureauDataParser(HTMLParser):
             return
         #<div class='marine'><div class='day'><h2>
         if self.path[2][0] == 'h2':
-            self.current_record = dict()
+            self.current_record = []
+            for i in xrange(0,4):
+                self.current_record.append(dict())
+            dt = None
             if len(self.records) == 0:
-                first_forecast_datetime = self.issued_time.replace(hour=0, minute=0, second=0) + timedelta(days=1)
-                self.current_record['DateTime'] = first_forecast_datetime.__str__()
-                self.current_record['Seconds'] = int((first_forecast_datetime - self.tzdiff - datetime(1970,1,1)).total_seconds())
+                dt = self.issued_time.replace(hour=0, minute=0, second=0)
             else:
-                dt = datetime.strptime(data, '%A %d %B').replace(year=self.issued_time.year, hour=12, minute=0, second=0)
-                self.current_record['DateTime'] = dt.__str__()
-                self.current_record['Seconds'] = int((dt - self.tzdiff - datetime(1970,1,1)).total_seconds())
+                dt = datetime.strptime(data, '%A %d %B').replace(year=self.issued_time.year, hour=0, minute=0, second=0)
+            for i in xrange(0, 4):
+                dt += timedelta(hours=6)
+                self.current_record[i]['DateTime'] = dt.__str__()
+                self.current_record[i]['Seconds'] = int((dt - self.tzdiff - datetime(1970,1,1)).total_seconds())
             return
         if len(self.path) < 4:
             return
@@ -243,51 +250,69 @@ class BureauDataParser(HTMLParser):
                         seas = float(seas_dict['from'])
                     if seas_dict['modifier'] == 'Below':
                         seas *= 0.8;
-                    self.current_record[self.field_name] = seas
+                    for i in xrange(0,4):
+                        self.current_record[i][self.field_name] = seas
+                        
+                    # increase/decrease seas
                     if seas_dict['from2'] != None:
-                        self.extra_record = dict()
                         if seas_dict['to2'] != None:
-                            extra_seas = (float(seas_dict['from2']) + float(seas_dict['to2'])) / 2.0
+                            seas = (float(seas_dict['from2']) + float(seas_dict['to2'])) / 2.0
                         else:
-                            extra_seas = float(seas_dict['from2'])
+                            seas = float(seas_dict['from2'])
                         if seas_dict['during'] == 'morning':
-                            # insert an extra record before the current record
-                            extra_datetime = datetime.fromtimestamp(self.current_record['Seconds']) - timedelta(hours=6)
-                            self.extra_record['DateTime'] = extra_datetime.__str__()
-                            self.extra_record['Seconds'] = int((extra_datetime - datetime(1970,1,1)).total_seconds())
-                            self.extra_record['Seas'] = extra_seas
-                            self.records.append(self.extra_record)
-                            self.extra_record = None
-                        elif seas_dict['during'] == 'evening':
-                            # append an extra record after the current record
-                            extra_datetime = datetime.fromtimestamp(self.current_record['Seconds']) + timedelta(hours=6)
-                            self.extra_record['DateTime'] = extra_datetime.__str__()
-                            self.extra_record['Seconds'] = int((extra_datetime - datetime(1970,1,1)).total_seconds())
-                            self.extra_record['Seas'] = extra_seas
+                            index = 0
                         elif seas_dict['during'] == 'afternoon':
-                            # insert and append extra records before and after the current record. also modify wave height for the current record
-                            extra_datetime = datetime.fromtimestamp(self.current_record['Seconds']) - timedelta(hours=6)
-                            self.extra_record['DateTime'] = extra_datetime.__str__()
-                            self.extra_record['Seconds'] = int((extra_datetime - datetime(1970,1,1)).total_seconds())
-                            self.extra_record['Seas'] = self.current_record[self.field_name]
-                            self.records.append(self.extra_record)
-                            self.extra_record = dict()
-                            extra_datetime = datetime.fromtimestamp(self.current_record['Seconds']) + timedelta(hours=6)
-                            self.extra_record['DateTime'] = extra_datetime.__str__()
-                            self.extra_record['Seconds'] = int((extra_datetime - datetime(1970,1,1)).total_seconds())
-                            self.extra_record['Seas'] = self.current_record[self.field_name]
-                            self.current_record[self.field_name] = extra_seas
+                            index = 1
+                        elif seas_dict['during'] == 'evening':
+                            index = 2
+                        for i in xrange(index, 4):
+                            self.current_record[i][self.field_name] = seas
                 else:
                     logging.error('Failed to parse wave height from "' + data + '"')
+                    for i in xrange[0:4]:
+                        self.current_record[i][self.field_name] = data
+            elif self.field_name == 'Winds':
+                match = re.search("^\D*(?P<from>\d+)(?: to (?P<to>\d+))? knots(?: (?:increasing|decreasing) to (?:about )?(?P<from2>\d+)(?: to (?P<to2>\d+))? knots (?:during|before|in) (?:the )?(?P<during>morning|dawn|afternoon|evening|late evening))?.*?", data)
+                if match:
+                    winds_dict = match.groupdict()
+                    winds = 0.0
+                    if winds_dict['from'] == None:
+                        logging.error('Failed to parse wind speed from "' + data + '"')
+                    elif winds_dict['to'] != None:
+                        winds = (float(winds_dict['from']) + float(winds_dict['to'])) / 2.0
+                    else:
+                        winds = float(winds_dict['from'])
+                    for i in xrange(0,4):
+                        self.current_record[i][self.field_name] = winds
+                        
+                    # increase/decrease winds
+                    if winds_dict['from2'] != None:
+                        if winds_dict['to2'] != None:
+                            winds = (float(winds_dict['from2']) + float(winds_dict['to2'])) / 2.0
+                        else:
+                            winds = float(winds_dict['from2'])
+                        if winds_dict['during'] == 'morning' or winds_dict['during'] == 'dawn':
+                            index = 0
+                        elif winds_dict['during'] == 'afternoon':
+                            index = 1
+                        elif winds_dict['during'] == 'evening' or winds_dict['during'] == 'late evening':
+                            index = 2
+                        for i in xrange(index, 4):
+                            self.current_record[i][self.field_name] = winds
+                else:
+                    logging.error('Failed to parse wind speed from "' + data + '"')               
                     self.current_record[self.field_name] = data
             else:
-                self.current_record[self.field_name] = data
+                for i in xrange(0,4):
+                    self.current_record[i][self.field_name] = data
             if len(self.path[3]) > 1 and len(self.path[3][1]) > 0 and self.path[3][1][0][0] == 'class' and self.path[3][1][0][1] == 'last':
-                self.records.append(self.current_record)
+                now = self.now()
+                for record in self.current_record:
+                    dt = datetime.fromtimestamp(record['Seconds'])
+                    if dt < now:
+                        continue
+                    self.records.append(record)
                 self.current_record = None
-                if self.extra_record != None:
-                    self.records.append(self.extra_record)
-                    self.extra_record = None
             self.field_name = None
             return       
         
