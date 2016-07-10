@@ -202,8 +202,15 @@ class WavesTest(unittest.TestCase):
         self.assertTrue(result[13]['Winds'] == 17.5)
         self.assertTrue(result[14]['Winds'] == 17.5)
         self.assertTrue(result[15]['Winds'] == 17.5)
-
         
+        fd_response_string.close();
+
+        fd_response_string = open("test_bom3.html")
+        response = fd_response_string.read()
+        result = page.string2dict(response)
+        
+        self.assertTrue(len(result) == 16)
+
                         
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

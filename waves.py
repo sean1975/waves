@@ -203,8 +203,15 @@ class BureauDataParser(HTMLParser):
             return
         #<div class='marine'><p class='date'>
         if self.path[1][0] == 'p' and self.path[1][1][0][0] == 'class' and self.path[1][1][0][1] == 'date':
-            # Forecast issued at 3:50 pm EST on Monday 20 June 2016.
-            self.issued_time = datetime.strptime(data, 'Forecast issued at %I:%M %p EST on %A %d %B %Y.')
+            if len(self.path) > 2:
+                #<div class='marine'><p class='date'><strong>
+                return
+            # Forecast issued/updated at 3:50 pm EST on Monday 20 June 2016.
+            match = re.search("(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) (?:\d)+ (?:\w)+ (?:\d)+", data)
+            if match:
+                self.issued_time = datetime.strptime(match.group(0), '%A %d %B %Y')
+            else:
+                logging.error('Failed to parse issued date from "' + data + '"')
             return
         #<div class='marine'><div class='day'>
         if self.path[1][0] != 'div' or self.path[1][1][0][0] != 'class' or self.path[1][1][0][1] != 'day':
