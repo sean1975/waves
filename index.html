@@ -27,23 +27,26 @@
         waves_data.setValue(row_index, 0, last_historical_datetime);
         waves_data.setValue(row_index, 3, last_historical_max_height);
 
-{% for record in forecast %}
+{% if forecast %}
+    {% for record in forecast %}
         row_index = waves_data.addRow();
         waves_data.setValue(row_index, 0, new Date({{ record.Seconds }} * 1000));
         waves_data.setValue(row_index, 3, {{ record.Waves|float|round(2) }});
-{% endfor %}        
+    {% endfor %}        
+{% endif %}
 
         waves_data.addColumn('number', 'Forecast 2');
         row_index = waves_data.addRow();
         waves_data.setValue(row_index, 0, last_historical_datetime);
         waves_data.setValue(row_index, 4, last_historical_max_height);
 
-{% for record in forecast2 %}
+{% if forecast2 %}
+    {% for record in forecast2 %}
         row_index = waves_data.addRow();
         waves_data.setValue(row_index, 0, new Date({{ record.Seconds }} * 1000));
         waves_data.setValue(row_index, 4, {{ record.Seas|float|round(2) }});
-{% endfor %}
-
+    {% endfor %}
+{% endif %}
 
         var formatter_options = new Object();
         formatter_options['pattern'] = 'hh:mm a';
@@ -91,11 +94,13 @@
         
         var wind_data = google.visualization.arrayToDataTable([
             ['Date Time', 'Forecast 1'],
-{% for record in forecast %}            
-    {% if record.Wind|int > 0 %}
+{% if forecast %}
+    {% for record in forecast %}            
+        {% if record.Wind|int > 0 %}
             [new Date({{ record.Seconds }} * 1000), {{ record.Wind|int }}]{% if not loop.last %},{% endif %}
-    {% endif %}
-{% endfor %}
+        {% endif %}
+    {% endfor %}
+{% endif %}
         ]);
         
         wind_data.addColumn('number', 'Forecast 2');
