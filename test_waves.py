@@ -140,7 +140,7 @@ class WavesTest(unittest.TestCase):
         response = fd_response_string.read()
         page = SeabreezeDataCrawler()
         result = page.string2dict(response)
-        self.assertTrue(len(result) == 13)
+        self.assertTrue(len(result) == 119)
         record_Seconds = datetime.fromtimestamp(result[0]['Seconds'])
         record_DateTime = datetime.strptime(result[0]['DateTime'], '%Y-%m-%d %H:%M:%S')
         self.assertTrue(record_Seconds == record_DateTime)

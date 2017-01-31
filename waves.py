@@ -107,7 +107,7 @@ class SeabreezeDataCrawler(AbstractDataCrawler):
     
     def string2dict(self, response):
         # extract waves data from var jsonGraphsData in javascript embedded in html
-        match = re.search("^var jsonGraphsData = (.*);\s*$", response, re.MULTILINE)
+        match = re.search("^var json\s*=\s*(.*);\s*$", response, re.MULTILINE)
         if not match:
             return None
         
