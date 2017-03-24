@@ -211,7 +211,21 @@ class WavesTest(unittest.TestCase):
         
         self.assertTrue(len(result) == 16)
 
-                        
+        fd_response_string = open("test_bom4.html")
+        response = fd_response_string.read()
+        result = page.string2dict(response)
+        
+        self.assertTrue(len(result) == 16)
+        
+        self.assertTrue(result[8]['Seas'] == 4.0)
+        self.assertTrue(result[9]['Seas'] == 4.0)
+        self.assertTrue(result[10]['Seas'] == 4.0)
+        self.assertTrue(result[11]['Seas'] == 4.0)
+        self.assertTrue(result[12]['Seas'] == 8.0)
+        self.assertTrue(result[13]['Seas'] == 8.0)
+        self.assertTrue(result[14]['Seas'] == 8.0)
+        self.assertTrue(result[15]['Seas'] == 8.0)
+                                
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

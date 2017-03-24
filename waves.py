@@ -278,6 +278,17 @@ class BureauDataParser(HTMLParser):
                     logging.error('Failed to parse wave height from "' + data + '"')
                     for i in xrange[0:4]:
                         self.current_record[i][self.field_name] = data
+            elif self.field_name == 'Waves':
+                match = re.search("^Seas (:?and swell )?exceeding (?P<waves>\d+)m\.?.*?", data)
+                if match:
+                    seas_dict = match.groupdict()
+                    seas = float(seas_dict['waves'])
+                    for i in xrange(0,4):
+                        self.current_record[i]["Seas"] = seas
+                else:
+                    logging.error('Failed to parse wave height from "' + data + '"')
+                    for i in xrange[0:4]:
+                        self.current_record[i]["Seas"] = data   
             elif self.field_name == 'Winds':
                 match = re.search("^\D*(?P<from>\d+)(?: to (?P<to>\d+))? knots(?: (?:increasing|decreasing) to (?:about )?(?P<from2>\d+)(?: to (?P<to2>\d+))? knots (?:during|before|in) (?:the )?(?P<during>morning|dawn|afternoon|evening|late evening))?.*?", data)
                 if match:
