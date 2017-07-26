@@ -31,6 +31,14 @@ class WavesTest(unittest.TestCase):
             filename = "test_response.json"
         return MockResponse(200, open(filename))
 
+    def return_duplicate_records(self, url, data):
+        parameters = json.loads(urllib.unquote(data))
+        if 'offset' in parameters:
+            filename = "test_response_duplicate_offset" + parameters['offset'] + ".json"
+        else:
+            filename = "test_response_duplicate.json"
+        return MockResponse(200, open(filename))
+
     @mock.patch('waves.urllib2')
     def testQuery(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
@@ -50,11 +58,12 @@ class WavesTest(unittest.TestCase):
     def testGetWavesData(self, mock_urllib2):
         mock_urllib2.urlopen = MagicMock(side_effect = self.return_by_offset_value)
         page = HistoricalDataCrawler()
+        page.setCacheData(None)
         records = page.getWavesData().get('records')
         self.assertTrue(records[0]["_id"] == 2873)
         self.assertTrue(len(records) == 334)
         for i in range(1, len(records)):
-            self.assertGreater(records[i]["_id"], records[i-1]["_id"], "Records are not sorted by id")
+            self.assertGreater(records[i]["Seconds"], records[i-1]["Seconds"], "Records are not sorted by time")
 
     @mock.patch('waves.urllib2')
     def testGetWavesDataDebug(self, mock_urllib2):
@@ -90,7 +99,18 @@ class WavesTest(unittest.TestCase):
         records = page.getWavesData().get('records')
         self.assertIsNotNone(records, "results are empty")
         self.assertTrue(records[0]["_id"] == 3202)
-        
+       
+    @mock.patch('waves.urllib2')
+    def testGetWavesDataDuplicate(self, mock_urllib2):
+        mock_urllib2.urlopen = MagicMock(side_effect = self.return_duplicate_records)
+        page = HistoricalDataCrawler()
+        page.setCacheData(None)
+        records = page.getWavesData().get('records')
+        self.assertTrue(records[0]["_id"] == 5895)
+        self.assertTrue(len(records) == 350)
+        for i in range(1, len(records)):
+            self.assertGreater(records[i]["Seconds"], records[i-1]["Seconds"], "Records are not sorted by time")
+
     def testRender(self):
         historical_data = dict()
         historical_data['records'] = [{

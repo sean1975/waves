@@ -2,7 +2,6 @@ import webapp2
 import urllib2
 import urllib
 import json
-from operator import itemgetter
 import os
 import jinja2
 import logging
@@ -10,6 +9,7 @@ import time
 from datetime import datetime, timedelta
 import re
 from HTMLParser import HTMLParser
+from collections import Counter
 
 
 class AbstractDataCrawler(webapp2.RequestHandler):
@@ -408,8 +408,18 @@ class HistoricalDataCrawler(AbstractDataCrawler):
             count += len(result['records'])
             records += result['records']
         
+        # waves statistics from data.qld.gov.au could be duplicated
+        deduped_records = []
+        dedupe_counter = Counter()
+        for i in range(0, len(records)):
+            seconds = records[i]['Seconds']
+            dedupe_counter[seconds] += 1
+            if dedupe_counter[seconds] == 1:
+                deduped_records.append(records[i])
+        
         historical_data['time'] = time.time()
-        historical_data['records'] = sorted(records, key=itemgetter("_id"))
+        # records['_id'] is not reliable, use records['Seconds'] for sorting instead
+        historical_data['records'] = sorted(deduped_records, cmp=lambda x,y: cmp(int(x['Seconds']), int(y['Seconds'])))
         historical_data['debug'] = query_log
         self.setCacheData(historical_data)
         return historical_data
