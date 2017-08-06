@@ -111,6 +111,14 @@ class WavesTest(unittest.TestCase):
         for i in range(1, len(records)):
             self.assertGreater(records[i]["Seconds"], records[i-1]["Seconds"], "Records are not sorted by time")
 
+    @mock.patch('waves.urllib2')
+    def testGetWavesDataEmpty(self, mock_urllib2):
+        mock_urllib2.urlopen = MagicMock(return_value = MockResponse(200, open('test_response_empty.json')))
+        page = HistoricalDataCrawler()
+        page.setCacheData(None)
+        records = page.getWavesData().get('records')
+        self.assertIsNone(records)
+
     def testRender(self):
         historical_data = dict()
         historical_data['records'] = [{

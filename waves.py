@@ -388,6 +388,10 @@ class HistoricalDataCrawler(AbstractDataCrawler):
         # load HTTP response into a json dictionary
         result = self.string2dict(response)
         
+        # query may be successiful but no records are returned
+        if 'records' not in result or 'total' not in result:
+            return historical_data
+        
         records = result['records']
         total = result['total']        
         count = len(records)
