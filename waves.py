@@ -120,7 +120,9 @@ class SeabreezeDataCrawler(AbstractDataCrawler):
         tzdiff = timedelta(hours=10)
         # now in Cairns timezone (AEST)
         now = self.now()+tzdiff
-        for i in xrange(58, len(response_array), 4):
+        index_start = int(response_array[11])
+        index_step = int(response_array[10])
+        for i in xrange(index_start, len(response_array), index_step):
             hours = float(response_array[i]) / 100
             timediff = timedelta(hours=hours)
             dt = start_date + timediff
