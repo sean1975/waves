@@ -105,13 +105,15 @@
         
         wind_data.addColumn('number', 'Forecast 2');
 
-{% for record in forecast2 %}
-    {% if record.Winds %}
-        row_index = wind_data.addRow();
-        wind_data.setValue(row_index, 0, new Date({{ record.Seconds }} * 1000));
-        wind_data.setValue(row_index, 2, {{ record.Winds|float|round(2) }});
-    {% endif %}
-{% endfor %}
+{% if forecast2 %}
+    {% for record in forecast2 %}
+        {% if record.Winds %}
+            row_index = wind_data.addRow();
+            wind_data.setValue(row_index, 0, new Date({{ record.Seconds }} * 1000));
+            wind_data.setValue(row_index, 2, {{ record.Winds|float|round(2) }});
+        {% endif %}
+    {% endfor %}
+{% endif %}
 
 formatter.format(wind_data, 0)
         
