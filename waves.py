@@ -347,8 +347,10 @@ class BureauDataCrawler(AbstractDataCrawler):
     def query(self):
         url = 'http://www.bom.gov.au/qld/forecasts/cairns-coast.shtml'
 
-        # send HTTP request
-        response = urllib2.urlopen(url)
+        # send HTTP request as a browser. Otherwise www.bom.gov.au would reject the request
+        opener = urllib2.build_opener()
+        opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
+        response = opener.open(url)
         assert response.code == 200
         
         return response.read()
